@@ -1,152 +1,140 @@
-# 🎙️ VoiceForge — Production Voice Cloning Dashboard
+# 🎙️ VoiceStudio — Self-Hosted Voice Cloning Dashboard
 
-Self-hosted, GPU-powered voice cloning with a full management UI.
-Built on Coqui XTTS v2 + Modal serverless GPU.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────┐     ┌──────────────────────────────────┐
-│   React Dashboard (claude.ai│────▶│  Modal FastAPI (voiceforge-api)  │
-│   or your own hosting)      │     │  A10G GPU · XTTS v2              │
-└─────────────────────────────┘     └──────────┬───────────────────────┘
-                                               │
-                               ┌───────────────┴─────────────────┐
-                               │ voiceforge-models (Volume)       │
-                               │ XTTS v2 weights (~2GB, cached)  │
-                               ├─────────────────────────────────┤
-                               │ voiceforge-storage (Volume)      │
-                               │ /characters/ — voice samples     │
-                               │ /audio/      — generated WAVs    │
-                               │ /jobs/       — job records       │
-                               └─────────────────────────────────┘
-```
+Self-hosted voice cloning powered by **Coqui XTTS v2** + **Modal serverless GPU** + **Streamlit**.
+Clone your voice once as a named **Character**, then generate unlimited voiceovers on demand — no per-character API fees.
 
 ---
 
-## Deploy Backend (5 minutes)
+## Stack
 
+| Layer | Technology |
+|-------|-----------|
+| Dashboard | Streamlit |
+| Voice Model | Coqui XTTS v2 (multilingual) |
+| GPU Compute | Modal (serverless, pay per use) |
+| Storage | JSON files (local) |
+| Hosting | Streamlit Cloud |
+
+---
+
+## Project Structure
+
+```
+voice_studio/
+├── app.py                        ← Streamlit entry point — run this
+├── modal_xtts.py                 ← Modal GPU backend — deploy this separately
+├── client.py                     ← Python client for direct Modal calls + batch mode
+├── n8n_integration.py            ← n8n HTTP helper + Code Node snippet
+├── requirements.txt              ← Python dependencies
+├── Procfile                      ← Start command for Railway / Render
+├── railway.toml                  ← Railway deployment config
+├── render.yaml                   ← Render deployment config
+├── DEPLOYMENT.md                 ← Step-by-step hosting guide
+│
+├── .streamlit/
+│   ├── config.toml               ← Dark theme + server settings
+│   └── secrets.toml.example      ← Template for Modal credentials (never commit the real one)
+│
+├── pages/
+│   ├── __init__.py
+│   ├── home.py                   ← Dashboard overview + quick stats
+│   ├── characters.py             ← Create & manage voice characters
+│   ├── generate.py               ← Main audio generation studio
+│   ├── history.py                ← Browse, replay & download past generations
+│   └── settings.py               ← Modal config, GPU type, connection test
+│
+├── utils/
+│   ├── __init__.py
+│   ├── storage.py                ← JSON persistence — characters, history, settings
+│   └── inference.py              ← Modal SDK + HTTP client + demo mode
+│
+└── data/                         ← Auto-created on first run — add to .gitignore
+    ├── characters.json           ← Character registry
+    ├── history.json              ← Generation log (last 200 entries)
+    ├── settings.json             ← User preferences
+    ├── characters/               ← Voice sample WAV files (one per character)
+    └── outputs/                  ← Generated audio WAV files
+```
+
+---
+
+## Quick Start (Local)
+
+### 1 — Install dependencies
 ```bash
-# 1. Install Modal
+pip install -r requirements.txt
+```
+
+### 2 — Deploy the Modal backend (one-time)
+```bash
 pip install modal
-modal setup
-
-# 2. Deploy
-cd backend/
-modal deploy modal_app.py
-
-# 3. Copy your endpoint URL from the output, looks like:
-#    https://YOUR-WORKSPACE--voiceforge-api.modal.run
+modal setup                    # Opens browser to authenticate
+modal deploy modal_xtts.py     # Deploys GPU function to Modal cloud
 ```
 
----
-
-## Use the Dashboard
-
-### Option A — Paste into Claude.ai (fastest)
-1. Open Claude.ai → New conversation
-2. Upload `frontend/App.jsx`
-3. Ask: "Run this React component"
-4. Click ⚙ API → paste your Modal endpoint → CONNECT
-
-### Option B — Host it yourself (Vercel, Netlify, etc.)
+### 3 — Run the dashboard
 ```bash
-cd frontend/
-npx create-react-app voiceforge --template minimal
-# Replace src/App.js with App.jsx content
-# Set API constant to your Modal URL
-npm run build
-# Deploy build/ to Vercel/Netlify
+streamlit run app.py
 ```
+Opens at **http://localhost:8501**
 
 ---
 
-## Usage Flow
+## Workflow
 
-1. **Create a Character** (once per voice)
-   - Go to CHARACTERS tab
-   - Upload a clean WAV/MP3 sample (6–30 sec)
-   - Give it a name, language, emoji
-   - Character is saved permanently to Modal volume
-
-2. **Generate Audio** (unlimited times)
-   - Go to GENERATE tab
-   - Select your character
-   - Paste your script
-   - Click ⚡ GENERATE
-   - Play inline or download WAV
-
-3. **History**
-   - All jobs stored with metadata
-   - Replay or re-download any past audio
-   - Filter by character or job name
+1. **👤 Characters** → Upload a 10–30s voice sample → Give it a name → Save
+2. **🎬 Generate Audio** → Pick your character → Write script → Hit Generate
+3. **📚 History** → Browse all past generations → Replay, download, or delete
 
 ---
 
-## REST API (for n8n / automation)
+## Deployment (Streamlit Cloud)
 
-```bash
-# List characters
-GET /characters
+1. Push this repo to GitHub (private recommended)
+2. Go to **share.streamlit.io** → New app → select this repo → `app.py`
+3. **Advanced settings → Secrets** → paste:
 
-# Create character
-POST /characters
-  multipart: name, description, language, avatar_emoji, speaker_wav (file)
-
-# Generate audio
-POST /generate
-  form: char_id, text, job_name
-
-# Download audio
-GET /audio/{job_id}
-
-# List jobs
-GET /jobs?char_id=OPTIONAL
+```toml
+MODAL_TOKEN_ID     = "ak-xxxxxxxxxxxxxxxxxxxx"
+MODAL_TOKEN_SECRET = "as-xxxxxxxxxxxxxxxxxxxx"
+MODAL_WORKSPACE    = "your-modal-username"
 ```
 
-### n8n HTTP Request node — Generate Audio
-```
-Method: POST
-URL: https://YOUR-WORKSPACE--voiceforge-api.modal.run/generate
-Body Type: Form-Data
-Fields:
-  char_id: {{ $json.char_id }}
-  text:    {{ $json.script }}
-  job_name: {{ $json.job_name }}
-```
+4. Click **Deploy** → live at `https://your-app-name.streamlit.app`
+
+> See `DEPLOYMENT.md` for Railway and Render options.
 
 ---
 
-## Cost (Modal A10G pricing)
+## Demo Mode
 
-| Action | Cost |
-|--------|------|
-| 30s voiceover | ~$0.003 |
-| 2min voiceover | ~$0.012 |
-| 100 voiceovers/month | ~$0.50–$2.00 |
-| ElevenLabs equivalent | $22–$99/month |
-
-**Savings: 95%+ vs ElevenLabs at scale.**
+Modal not deployed yet? Toggle **Demo Mode** on the Generate page to test the full UI — it generates a placeholder tone instead of real voice. Disable it once Modal is live.
 
 ---
 
-## Files
+## Supported Languages
 
-```
-voiceforge/
-├── backend/
-│   └── modal_app.py     # Modal GPU inference + REST API + volume storage
-└── frontend/
-    └── App.jsx          # Full React dashboard (Characters + Generate + History)
-```
+`en` `it` `de` `es` `fr` `pt` `pl` `tr` `ru` `nl` `cs` `ar` `zh-cn` `ja` `hu` `ko`
 
 ---
 
-## Tips
+## Cost vs ElevenLabs
 
-- **Cold start:** First call after idle takes 30–60s (container spins up). Subsequent calls in the same session are fast.
-- **Best results:** 10–20 second voice sample, quiet room, natural speech
-- **Batch:** Use the Python client's `batch_clone()` for parallel processing
-- **Languages:** en, it, de, es, fr, pt, ru, ja, zh-cn, ko, ar, hu, pl, tr, nl
+| | VoiceStudio (Modal A10G) | ElevenLabs |
+|--|--------------------------|------------|
+| Per minute of audio | ~$0.003–0.006 | ~$0.18–0.60 per 1k chars |
+| 100 voiceovers/mo | ~$0.30–$0.60 | $5–$22/mo subscription |
+| Voice clones | Unlimited | Plan-limited |
+| Self-hosted | ✅ | ❌ |
+
+**VoiceStudio is 10–50x cheaper at scale.**
+
+---
+
+## Upgrade Path
+
+| Feature | Current | When You Need It |
+|---------|---------|-----------------|
+| Storage | JSON files | Add Supabase for persistent cloud storage |
+| Auth | None | Add Streamlit-Authenticator for multi-user |
+| Hosting | Streamlit Cloud (free) | Move to Railway for always-on + custom domain |
