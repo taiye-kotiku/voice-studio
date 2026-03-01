@@ -1,0 +1,8 @@
+{
+  "modal_workspace": "kotikutaiye",
+  "default_language": "en",
+  "gpu_type": "A10G",
+  "container_idle_timeout": 120,
+  "theme": "dark",
+  "http_endpoint": " https://kotikutaiye--xtts-api.modal.run "
+}
