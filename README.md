@@ -24,12 +24,8 @@ voice_studio/
 ├── app.py                        ← Streamlit entry point — run this
 ├── modal_xtts.py                 ← Modal GPU backend — deploy this separately
 ├── client.py                     ← Python client for direct Modal calls + batch mode
-├── n8n_integration.py            ← n8n HTTP helper + Code Node snippet
 ├── requirements.txt              ← Python dependencies
 ├── Procfile                      ← Start command for Railway / Render
-├── railway.toml                  ← Railway deployment config
-├── render.yaml                   ← Render deployment config
-├── DEPLOYMENT.md                 ← Step-by-step hosting guide
 │
 ├── .streamlit/
 │   ├── config.toml               ← Dark theme + server settings
@@ -48,7 +44,7 @@ voice_studio/
 │   ├── storage.py                ← JSON persistence — characters, history, settings
 │   └── inference.py              ← Modal SDK + HTTP client + demo mode
 │
-└── data/                         ← Auto-created on first run — add to .gitignore
+└── data/                         ← Auto-created on first run
     ├── characters.json           ← Character registry
     ├── history.json              ← Generation log (last 200 entries)
     ├── settings.json             ← User preferences
@@ -101,8 +97,6 @@ MODAL_WORKSPACE    = "your-modal-username"
 ```
 
 4. Click **Deploy** → live at `https://your-app-name.streamlit.app`
-
-> See `DEPLOYMENT.md` for Railway and Render options.
 
 ---
 

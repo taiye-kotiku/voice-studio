@@ -49,3 +49,6 @@ desktop.ini
 
 # Modal
 .modal/
+
+#Samples
+voice_samples/*

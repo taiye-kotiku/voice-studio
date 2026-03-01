@@ -11,19 +11,23 @@ from pathlib import Path
 app = modal.App("xtts-voice-cloning")
 
 # Docker image with all deps pre-installed
+# COQUI_TOS_AGREED=1 bypasses the interactive license prompt in headless containers
 xtts_image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("ffmpeg", "libsndfile1")
     .pip_install(
-        "TTS==0.22.0",          # Coqui TTS (includes XTTS v2)
-        "torch==2.1.0",
-        "torchaudio==2.1.0",
+        "torch==2.4.0",
+        "torchaudio==2.4.0",
+        "transformers==4.40.2",    # pinned — newer versions removed BeamSearchScorer
+        "TTS==0.22.0",
         "fastapi",
         "python-multipart",
         "pydub",
         "numpy",
         "scipy",
+        "soundfile",
     )
+    .env({"COQUI_TOS_AGREED": "1"})   # ← Accepts license non-interactively
 )
 
 # Persistent volume to cache the XTTS model weights (~2 GB)
@@ -33,11 +37,11 @@ MODEL_DIR = "/model-cache"
 
 # ── Core Inference Class ─────────────────────────────────────────────────────
 @app.cls(
-    gpu="A10G",                         # A10G = good balance of speed/cost
+    gpu="A10G",                     # A10G = good balance of speed/cost
     image=xtts_image,
     volumes={MODEL_DIR: model_volume},
     timeout=300,
-    container_idle_timeout=120,         # Keep warm for 2 min between calls
+    scaledown_window=120,           # Keep warm for 2 min between calls
 )
 class XTTSCloner:
 
@@ -103,7 +107,7 @@ class XTTSCloner:
     volumes={MODEL_DIR: model_volume},
     timeout=300,
 )
-@modal.web_endpoint(method="POST", label="xtts-api")
+@modal.fastapi_endpoint(method="POST", label="xtts-api")   # updated decorator
 async def synthesize_api(request):
     """
     HTTP endpoint — multipart form:
@@ -112,7 +116,7 @@ async def synthesize_api(request):
       - speaker_wav:  file upload (WAV or MP3)
     Returns: audio/wav binary
     """
-    from fastapi import UploadFile, Form, Response
+    from fastapi import UploadFile
     from fastapi.responses import Response as FastResponse
 
     form = await request.form()
@@ -122,6 +126,6 @@ async def synthesize_api(request):
     speaker_bytes = await speaker_file.read()
 
     cloner = XTTSCloner()
-    audio_bytes = cloner.clone_voice.remote(text, speaker_bytes, language)
+    audio_bytes = cloner.clone_voice.remote(text, speaker_bytes, language)  # type: ignore
 
     return FastResponse(content=audio_bytes, media_type="audio/wav")
