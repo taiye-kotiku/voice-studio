@@ -1,12 +1,26 @@
 """
 Modal inference client — wraps the XTTS v2 Modal function call.
-Handles both direct Modal SDK calls and HTTP endpoint fallback.
+Reads Modal credentials from Streamlit secrets or environment variables.
 """
 
+import os
 import time
 import io
 import wave
 from pathlib import Path
+
+
+def _load_modal_credentials():
+    """Try Streamlit secrets first, fall back to environment variables."""
+    try:
+        import streamlit as st
+        token_id     = st.secrets.get("MODAL_TOKEN_ID", "")
+        token_secret = st.secrets.get("MODAL_TOKEN_SECRET", "")
+        if token_id and token_secret:
+            os.environ["MODAL_TOKEN_ID"]     = token_id
+            os.environ["MODAL_TOKEN_SECRET"] = token_secret
+    except Exception:
+        pass  # Not in Streamlit context — use env vars set on the host directly
 
 
 SUPPORTED_LANGUAGES = {
@@ -44,6 +58,7 @@ def generate_audio_modal(text: str, speaker_wav_bytes: bytes, language: str = "e
     Call Modal XTTS function directly via Modal SDK.
     Returns (audio_bytes, duration_seconds)
     """
+    _load_modal_credentials()
     import modal
 
     start = time.time()

@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+secrets.toml
+
+# VoiceStudio runtime data (user-generated, not source code)
+data/characters/*.wav
+data/outputs/*.wav
+data/characters.json
+data/history.json
+data/settings.json
+
+# Keep the data folder structure but not the content
+!data/.gitkeep
+!data/characters/.gitkeep
+!data/outputs/.gitkeep
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Modal
+.modal/
